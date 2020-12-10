@@ -13,6 +13,7 @@ import com.google.common.collect.BiMap;
 import org.eclipse.collections.impl.list.mutable.primitive.IntArrayList;
 import org.jbpt.algo.tree.rpst.IRPSTNode;
 
+import java.nio.file.Paths;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -36,7 +37,6 @@ public class RpaDiscovery
         log.println(TAG_IMPORT, 2, "****STEP: import log...");
 
         log.println(TAG_IMPORT, 3, "path file: " + fileName);
-
 
         ImportEventLog importer = new ImportEventLog();
 
@@ -143,7 +143,7 @@ public class RpaDiscovery
 
         log.println(TAG_FIND_DEPENDENCIES, 2, "****STEP: discover dependencies...");
 
-        //List<String> discardedActionKeyList = Arrays.asList("insertValue");
+        // List<String> discardedActionKeyList = Arrays.asList("insertValue");
         List<String> discardedActionKeyList = Arrays.asList("TypeInto");
 
         ArrayList<String> discardedAction = new ArrayList<>();
@@ -246,8 +246,10 @@ public class RpaDiscovery
         /*System.out.println("6-7");
         System.out.println(eventsAttributesMap.get("[6-7]").getName());
         System.out.println(eventsAttributesMap.get("[6-7]").getPolygon());*/
-
-
+        
+        // export the results as json in the same directory
+        String path = Paths.get(fileName).getParent().toString();
+        exportResults(dafsa, actionPayloadMap, automatablePolygonsCandidates, trivialRules, activationRules, subPolygonMap, path);
     }
 
     private TreeMap<String, LinkedList<SubPolygon>> constructSubPolygonMap(TreeMap<String, LinkedList<IRPSTNode>> labelRPSDNodeMap) {

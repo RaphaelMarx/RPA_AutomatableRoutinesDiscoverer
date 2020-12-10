@@ -1,40 +1,44 @@
 package au.edu.unimelb.rpadiscovery.Utils;
 
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.StringReader;
+import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Map.Entry;
+import java.util.LinkedList;
 import java.util.List;
-import java.util.regex.*;
+import java.util.Map.Entry;
+import java.util.TreeMap;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
-import info.debatty.java.stringsimilarity.Levenshtein;
-import info.debatty.java.stringsimilarity.LongestCommonSubsequence;
-import info.debatty.java.stringsimilarity.SorensenDice;
-import info.debatty.java.stringsimilarity.NormalizedLevenshtein;
-
-import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.DocumentBuilder;
-import javax.xml.transform.TransformerFactory;
-import javax.xml.transform.dom.DOMSource;
+import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.transform.OutputKeys;
 import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerFactory;
+import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
 
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+import org.w3c.dom.Document;
+import org.w3c.dom.NamedNodeMap;
+import org.w3c.dom.Node;
 import org.xml.sax.InputSource;
 
+import au.edu.unimelb.rpadiscovery.SubPolygon;
 import au.edu.unimelb.rpadiscovery.fromLogToDafsa.automaton.Automaton;
 import au.edu.unimelb.rpadiscovery.fromLogToDafsa.automaton.Transition;
 import au.edu.unimelb.rpadiscovery.fromLogToDafsa.importer.EventAttributes;
 import au.edu.unimelb.rpadiscovery.fromLogToDafsa.importer.EventAttributesList;
-
-import org.w3c.dom.Document;
-import org.w3c.dom.Node;
-import org.w3c.dom.NamedNodeMap;
-
-
-import java.io.StringReader;
-import java.io.StringWriter;
-
+import info.debatty.java.stringsimilarity.Levenshtein;
+import info.debatty.java.stringsimilarity.LongestCommonSubsequence;
+import info.debatty.java.stringsimilarity.NormalizedLevenshtein;
+import info.debatty.java.stringsimilarity.SorensenDice;
 public class Extension {
     
     /**
@@ -175,6 +179,12 @@ public class Extension {
         return builder.parse(is);
     }
 
+    /**
+     * Util function that converts an xml-Document into a String
+     * @param doc
+     * @return
+     * @throws Exception
+     */
     public static String writeXMLToString(Document doc) throws Exception {
         TransformerFactory tf = TransformerFactory.newInstance();
         Transformer transformer = tf.newTransformer();
@@ -446,4 +456,195 @@ public class Extension {
 
         }
     }
+
+
+
+
+    public static void exportResults(Automaton dafsa, HashMap<String, EventAttributesList> actionPayloadMap, TreeMap<String, LinkedList<SubPolygon>> automatablePolygonsCandidates, HashMap<String, String> trivialRules, 
+                                    HashMap<String, String> activationRules, TreeMap<String, LinkedList<SubPolygon>> subPolygonMap, String path) {
+        JSONObject actions = new JSONObject();
+        
+        for (Integer transID : dafsa.transitions().keySet()) {
+            au.edu.unimelb.rpadiscovery.fromLogToDafsa.automaton.Transition t = dafsa.transitions().get(transID);
+            String transLabel = "[" + t.source().label() + "->" + t.target().label() + "]";
+
+            JSONObject jsAttributes;
+            
+            String add = "";
+            for (EventAttributes eventAttr : actionPayloadMap.get(transLabel).getList()) {
+                jsAttributes = new JSONObject();
+                try {
+                    jsAttributes.put("name", eventAttr.getActivityName()); // check if this attrname is already in the json
+                } catch (JSONException e1) {
+                    // TODO Auto-generated catch block
+                    e1.printStackTrace();
+                }
+                for (Entry<String, LinkedList<String>> attributes : eventAttr     // dont peek! use every element in list!
+                .getEventAttributesMap().entrySet()) {
+                    try {
+                        jsAttributes.put(attributes.getKey(), attributes.getValue().getFirst());
+                    } catch (JSONException e) {
+                        // TODO Auto-generated catch block
+                        e.printStackTrace();
+                    }
+                }
+                try {
+                    actions.put(transLabel + add, jsAttributes);
+                    //add += "l";
+                } catch (JSONException e) {
+                    // TODO Auto-generated catch block
+                    e.printStackTrace();
+                }
+            }
+           
+        }
+        try {
+            
+            FileWriter fwActions = new FileWriter(path + "actions.json");
+            actions.write(fwActions);
+            fwActions.flush();
+        } catch (IOException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+
+        // Graph Export start
+               try {
+            JSONObject graph = new JSONObject();
+            JSONArray starter = new JSONArray();
+            graph.put("start", starter);
+            for (Entry<Integer, au.edu.unimelb.rpadiscovery.fromLogToDafsa.automaton.State> state : dafsa.states()
+                    .entrySet()) {
+                JSONArray transitionsArray = new JSONArray();
+                for (Transition trans : state.getValue().outgoingTransitions()) {
+                    // add transition object to transition array
+                    JSONObject singleTransition = new JSONObject();
+
+                    singleTransition.put("target", trans.target().label());
+
+                    // check rules & regions
+
+                    transitionsArray.put(singleTransition);
+                }
+                if(state.getValue().isFinal()) {
+                    transitionsArray.put(new JSONObject().put("final", "true"));
+                }
+                if(state.getValue().isSource()) {
+                    System.out.println("Source:  " + state.getKey().toString());
+                    starter.put(state.getKey().toString());
+                }
+                graph.put(state.getKey().toString(), transitionsArray);
+            }
+            System.out.println(graph.toString());
+            System.out.println(starter.toString());
+
+            for (String polygon : automatablePolygonsCandidates.keySet()) {
+                for (SubPolygon subPolygon : automatablePolygonsCandidates.get(polygon)) {
+                    String beginState = subPolygon.getStart().getLabel().substring(1, subPolygon.getStart().getLabel().indexOf("-"));
+                    String endState = subPolygon.getStart().getLabel().substring(subPolygon.getStart().getLabel().indexOf(">") + 1, subPolygon.getStart().getLabel().length() - 1);
+                    // trivial Rules
+                    if (trivialRules.get(subPolygon.getName()) != null) {
+                        String[] ruleString = trivialRules.get(subPolygon.getName()).split(" ");
+                        for (int i = 1; i < ruleString.length - 1; i++) {
+                            String beginCondition = ruleString[i].substring(1, ruleString[i].indexOf("-"));
+                            String endCondition = ruleString[i].substring(ruleString[i].indexOf(">") + 1,
+                                    ruleString[i].length() - 1);
+                            System.out.println("Start: " + beginCondition + " and  " + endCondition);
+                            System.out.println(ruleString[i]);
+                            for (int j = 0; j < graph.getJSONArray(beginCondition).length(); j++) {
+                                JSONObject trans = graph.getJSONArray(beginCondition).getJSONObject(j);
+                                if (trans.getString("target").equals(endCondition)) {
+                                    trans.put("trivialStart", beginState);
+                                    trans.put("trivialEnd", endState);
+                                    
+                                }
+                            }
+                        }
+                    }
+
+                    // activation Rules (not working with multiple conditions)
+                    if(activationRules.get(subPolygon.getName()) != null) {
+                        String ruleString = activationRules.get(subPolygon.getName());
+                        String regexString = "\\((\\[\\d+\\-\\>\\d+\\])(\\w+):(\\w+) (\\W+) (.+)\\)";
+
+                        
+                        Pattern p = Pattern.compile(regexString, Pattern.MULTILINE);
+                        Matcher m = p.matcher(ruleString);
+                        if(m.find()) {
+                            System.out.println(m.group(0));
+                            // suche transition -> ähnlich zu oben
+                            String beginCondition = m.group(1).substring(1, m.group(1).indexOf("-"));
+                            String endCondition = m.group(1).substring(m.group(1).indexOf(">") + 1, m.group(1).length() - 1);
+                            System.out.println("Condition: " + m.group(1));
+                            for (int j = 0; j < graph.getJSONArray(beginCondition).length(); j++) {
+                                JSONObject trans = graph.getJSONArray(beginCondition).getJSONObject(j);
+                                
+                                if (trans.getString("target").equals(endCondition)) {
+                                    JSONArray actArr;
+                                    if(!trans.has("activationRule")) {
+                                        actArr = new JSONArray();
+                                        trans.put("activationRule", actArr);
+                                    }
+                                    else {
+                                        actArr = trans.getJSONArray("activationRule");
+                                    }
+                                    JSONObject actRule = new JSONObject();
+                                    actRule.put("activityName", m.group(2));
+                                    actRule.put("attributeName", m.group(3));
+                                    actRule.put("operator", m.group(4));
+                                    actRule.put("attributeValue", m.group(5));
+                                    actRule.put("activatedStart", beginState);
+                                    actRule.put("activatedEnd", endState);
+                                    actArr.put(actRule);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // can't use automatable, because it doesn't contain all SESE sequences (single actions are still not in this list)
+            for(String polygonName : subPolygonMap.keySet()) {
+                LinkedList<SubPolygon> spl = subPolygonMap.get(polygonName);
+                for(SubPolygon sp : spl) {
+                    System.out.println(sp.getStart().getLabel() + " to " + sp.getFinish().getLabel());
+                    String beginTransState = sp.getStart().getLabel().substring(1, sp.getStart().getLabel().indexOf("-"));
+                    String endTransState = sp.getStart().getLabel().substring(sp.getStart().getLabel().indexOf(">") + 1, sp.getStart().getLabel().length() - 1);
+
+
+                    for (int j = 0; j < graph.getJSONArray(beginTransState).length(); j++) {
+                        JSONObject trans = graph.getJSONArray(beginTransState).getJSONObject(j);
+                        if (trans.getString("target").equals(endTransState)) {
+                            trans.put("entry", sp.getName());
+                        }
+                    }
+
+                    String beginEndState = sp.getFinish().getLabel().substring(1, sp.getFinish().getLabel().indexOf("-"));
+                    String endEndState = sp.getFinish().getLabel().substring(sp.getFinish().getLabel().indexOf(">") + 1, sp.getFinish().getLabel().length() - 1);
+                    for (int j = 0; j < graph.getJSONArray(beginEndState).length(); j++) {
+                        JSONObject trans = graph.getJSONArray(beginEndState).getJSONObject(j);
+                        if (trans.getString("target").equals(endEndState)) {
+                            trans.put("exit", sp.getName());
+                        }
+                    }
+                }
+            }
+
+
+            System.out.println(graph.toString());
+            FileWriter graphWriter = new FileWriter(path + "graph.json");
+            graph.write(graphWriter);
+            graphWriter.flush();
+        } catch (JSONException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        } catch (IOException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
+    }
+
+
 }
