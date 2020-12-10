@@ -18,6 +18,7 @@ import java.util.stream.Collectors;
 
 import static au.edu.unimelb.rpadiscovery.Utils.Functions.*;
 import static au.edu.unimelb.rpadiscovery.Utils.LogTAG.*;
+import static au.edu.unimelb.rpadiscovery.Utils.Extension.*;
 
 public class RpaDiscovery
 {
@@ -98,7 +99,7 @@ public class RpaDiscovery
         //log.println(TAG, 5, rpst.getDirectSuccessors(rpst.getRoot()));
 
 
-
+        graphAnalyzer(dafsa, actionPayloadMap);
 
         TreeMap<String, LinkedList<IRPSTNode>> labelRPSDNodeMap = rpstAdapter.labelRPSDNodeMap();
 
@@ -142,7 +143,8 @@ public class RpaDiscovery
 
         log.println(TAG_FIND_DEPENDENCIES, 2, "****STEP: discover dependencies...");
 
-        List<String> discardedActionKeyList = Arrays.asList("insertValue");
+        //List<String> discardedActionKeyList = Arrays.asList("insertValue");
+        List<String> discardedActionKeyList = Arrays.asList("TypeInto");
 
         ArrayList<String> discardedAction = new ArrayList<>();
         for (String disc_i : discardedActionKeyList) {
