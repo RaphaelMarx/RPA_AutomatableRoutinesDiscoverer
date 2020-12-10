@@ -496,6 +496,7 @@ public class RpaDiscovery
         log.println(TAG_FIND_DEPENDENCIES, 5, missingDependencyAttributeMap);
         for (String rpstEdge : missingDependencyAttributeMap.keySet()) {
             LinkedList<String> attributeMissing = missingDependencyAttributeMap.get(rpstEdge);
+            int numberMissing = attributeMissing.size();
             for (String attribute : attributeMissing) {
                 boolean atLeastOneTraceContainsDependency = false;
                 boolean allTraceContainsDependency = true;
@@ -520,8 +521,9 @@ public class RpaDiscovery
                 if (allTraceContainsDependency) {
 
                     log.println(TAG_FIND_DEPENDENCIES, 5, "in " + rpstEdge + "-" + eventsAttributesMap.get(rpstEdge).getName() + " found dependency in attribute: " + attribute);
-                    attributeMissing.remove(attribute);
-                    if (attributeMissing.size() == 0) {
+                    // attributeMissing.remove(attribute);
+                    numberMissing--;
+                    if (numberMissing == 0) {
                         deleteRpstMissing.add(rpstEdge);
                     }
 
