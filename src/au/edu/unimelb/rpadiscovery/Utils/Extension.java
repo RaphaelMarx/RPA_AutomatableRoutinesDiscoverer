@@ -4,6 +4,7 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.StringReader;
 import java.io.StringWriter;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -500,7 +501,7 @@ public class Extension {
         }
         try {
             
-            FileWriter fwActions = new FileWriter(path + "actions.json");
+            FileWriter fwActions = new FileWriter(path + "actions.json", StandardCharsets.UTF_8);
             actions.write(fwActions);
             fwActions.flush();
         } catch (IOException e) {
@@ -634,7 +635,7 @@ public class Extension {
 
 
             System.out.println(graph.toString());
-            FileWriter graphWriter = new FileWriter(path + "graph.json");
+            FileWriter graphWriter = new FileWriter(path + "graph.json", StandardCharsets.UTF_8);
             graph.write(graphWriter);
             graphWriter.flush();
         } catch (JSONException e) {

@@ -248,7 +248,7 @@ public class RpaDiscovery
         System.out.println(eventsAttributesMap.get("[6-7]").getPolygon());*/
         
         // export the results as json in the same directory
-        String path = Paths.get(fileName).getParent().toString();
+        String path = Paths.get(fileName).getParent().toString() + "\\";
         exportResults(dafsa, actionPayloadMap, automatablePolygonsCandidates, trivialRules, activationRules, subPolygonMap, path);
     }
 
