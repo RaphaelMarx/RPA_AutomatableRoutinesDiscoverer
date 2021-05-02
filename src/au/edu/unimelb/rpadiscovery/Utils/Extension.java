@@ -36,31 +36,21 @@ import au.edu.unimelb.rpadiscovery.fromLogToDafsa.automaton.Automaton;
 import au.edu.unimelb.rpadiscovery.fromLogToDafsa.automaton.Transition;
 import au.edu.unimelb.rpadiscovery.fromLogToDafsa.importer.EventAttributes;
 import au.edu.unimelb.rpadiscovery.fromLogToDafsa.importer.EventAttributesList;
-import info.debatty.java.stringsimilarity.Levenshtein;
-import info.debatty.java.stringsimilarity.LongestCommonSubsequence;
 import info.debatty.java.stringsimilarity.NormalizedLevenshtein;
-import info.debatty.java.stringsimilarity.SorensenDice;
 public class Extension {
     
     /**
-     * Uses different similarity metrics to compare two selectors to decide if they can be combined.  
+     * Uses NormalizedLevenshtein similarity metric to compare two selectors to decide if they can be a candidate for combination. 
      * @param selector1
      * @param selector2
      * @param minimalSimilarity
      * @return
      */
     private static boolean similarityCheck(String selector1, String selector2, float minimalSimilarity) { // TODO use useful similarity metric
-        Levenshtein l = new Levenshtein();
-        int hardcodedMagicNumber = 75;
-        System.out.println("Levenshtein: " + l.distance(selector1, selector2));
         NormalizedLevenshtein nl = new NormalizedLevenshtein();
         System.out.println("NormalizedLevenshtein: " + nl.distance(selector1, selector2) + " - - - Similarity: " +  nl.similarity(selector1, selector2));
-        LongestCommonSubsequence lcs = new LongestCommonSubsequence();
-        System.out.println("LongestCommonSubsequence: " + lcs.distance(selector1, selector2) + " - - - Length: " + lcs.length(selector1, selector2));
-        SorensenDice sd = new SorensenDice();
-        System.out.println("SorensonDice: " + sd.distance(selector1, selector2) + " - - - Similarity: " + sd.similarity(selector1, selector2));
         
-        if(l.distance(selector1, selector2) <= hardcodedMagicNumber && nl.similarity(selector1, selector2) >= minimalSimilarity ){
+        if(nl.similarity(selector1, selector2) >= minimalSimilarity ){
             return true;
         }
         return false;
@@ -259,7 +249,11 @@ public class Extension {
     }
 
 
-
+    /**
+     * Analyzes the DAFSA and checks if the source strings are similar enough to be combined
+     * @param dafsa the dafsa Automaton
+     * @param actionPayloadMap contains the attributes
+     */
     public static void graphAnalyzer(Automaton dafsa, HashMap<String, EventAttributesList> actionPayloadMap) {
         for (Entry<Integer, au.edu.unimelb.rpadiscovery.fromLogToDafsa.automaton.State> state : dafsa.states()
                     .entrySet()) {
@@ -270,7 +264,7 @@ public class Extension {
                     // double for 
 
                     System.out.println("Multiple outgoing at " + state.getValue().label() + " ( Count:  " + outgoingLength + " )");
-                    boolean[] duplicates = new boolean[outgoingLength]; // default false, set to true after combining them (?)
+                    boolean[] duplicates = new boolean[outgoingLength]; // default false, set to true after combining them
 
                     for (int i = 0; i < outgoingLength - 1; i++) {
                         Transition transA = state.getValue().outgoingTransitions().get(i);
@@ -307,12 +301,9 @@ public class Extension {
                                 String generalized = combineSelector(src1, src2);
                                 eventAttr.getAttributes("source").remove(src1);
                                 eventAttr2.getAttributes("source").remove(src2);
-                                //eventAttr.getAttributes("source").clear();   // TODO don't clear like that: if target.id() == target.id(): combine all selectors in eventAttr.getAttributes("source") at once
                                 eventAttr.addAttributes("source", generalized);
 
-                                //actionPayloadMap.get(RPSTLabel).getList().remove(eventAttr2);
 
-                                // TODO remove the transition
 
                                 
                                 duplicates[j] = true;
@@ -369,13 +360,9 @@ public class Extension {
                                     if(similarityCheck(src1, src2, 0.9f)) {
                                         // combine them
                                         String result = combineSelector(src1, src2);
-                                        // ea1.getAttributes("source").clear();
                                         ea1.getAttributes("source").remove(src1);
                                         ea1.addAttributes("source", result);
                                         
-                                        // TODO uncomment. Node has to be deleted, Transitions have to be reinstated
-                                        //actionPayloadMap.get(RPSTLabelB).getList().remove(ea2);
-                                        // ea2.getAttributes("source").clear();
                                         ea2.getAttributes("source").remove(src2);
                                         ea2.addAttributes("source", result);
                                         System.out.println("combined diff nodes");
@@ -388,59 +375,7 @@ public class Extension {
                                 }
                                 else {
                                     // if the following event is not the same
-                                    // TODO only done for testing. Need more intelligent way to decide
-                                    System.out.println("Normally no SimCheck.");
-                                    
-                                    
-                                    String RPSTLabelA = "[" + state.getValue().label() + "->" + transA.target().label() + "]";
-                                    String RPSTLabelB = "[" + state.getValue().label() + "->" + transB.target().label() + "]";
-                                    System.out.println("ActionPayloadMapLength: " + actionPayloadMap.get(RPSTLabelA).getList().size() + " vs " + actionPayloadMap.get(RPSTLabelB).getList().size() + " -- for: " + RPSTLabelA + " vs " + RPSTLabelB);
-                                    for(EventAttributes ea : actionPayloadMap.get(RPSTLabelA).getList()) {
-                                        System.out.println(ea.getActivityName() + " with  " );
-                                        for (String key : ea.getEventAttributesMap().keySet()) {
-                                            System.out.println("Key: " + key + " and Vals: " + ea.getAttributes(key));
-                                        }
-                                        System.out.println("___");
-                                    }
-                                    actionPayloadMap.get(RPSTLabelB).getList().size();
-                                    
-
-
-                                    String src1 = ""; 
-                                    String src2 = "";
-                                    EventAttributes ea1 = null;
-                                    EventAttributes ea2 = null;
-                                    for (EventAttributes ea : actionPayloadMap.get(RPSTLabelA).getList()) {
-                                         if(ea.getActivityName().equals(dafsa.eventLabels().get(transA.eventID()))) {
-                                            src1 = ea.getAttribute("source", 0);
-                                            ea1 = ea;
-                                         }
-                                    }
-                                    for (EventAttributes ea : actionPayloadMap.get(RPSTLabelB).getList()) {
-                                        if(ea.getActivityName().equals(dafsa.eventLabels().get(transB.eventID()))) {
-                                           src2 = ea.getAttribute("source", 0);
-                                           ea2 = ea;
-                                        }
-                                    }
-                                    if(similarityCheck(src1, src2, 0.9f)) {
-                                        System.out.println("Combining still possible.");
-                                        String result = combineSelector(src1, src2);
-                                        ea1.getAttributes("source").remove(src1);
-                                        // ea1.getAttributes("source").clear();
-                                        ea1.addAttributes("source", result);
-                                        
-                                        // TODO uncomment. Node has to be deleted, Transitions have to be reinstated
-                                        // actionPayloadMap.get(RPSTLabelB).getList().remove(ea2);
-                                        ea2.getAttributes("source").remove(src2);
-                                        // ea2.getAttributes("source").clear();
-                                        ea2.addAttributes("source", result);
-                                        System.out.println("combined diff nodes");
-
-                                        duplicates[j] = true;
-                                    }
-
-
-                                    // TODO end of ONLY FOR TESTING need more intelligent way to decide
+                                    System.out.println("Not combinable decision, because the following Events are not the same.");
                                 }
                                 
                             }
@@ -450,9 +385,6 @@ public class Extension {
                             // else do nothing
                         }
                     }
-
-                    // TODO remove the transitions marked as duplicates
-                    // TODO return the graph and/or actionPayloadMap
                 }
 
         }
@@ -460,7 +392,16 @@ public class Extension {
 
 
 
-
+    /**
+     * Exports the results of the Automatable Routines Discoverer as json files. The DAFSA with activation rules als an adjacency list and all actions and their attributes
+     * @param dafsa the DAFSA Automaton
+     * @param actionPayloadMap contains the attributes of the actions
+     * @param automatablePolygonsCandidates automatable routines candidates
+     * @param trivialRules simple activation conditions
+     * @param activationRules activation rules learned with JRIPPER
+     * @param subPolygonMap map of all polygons and subpolygons 
+     * @param path where to save the json files
+     */
     public static void exportResults(Automaton dafsa, HashMap<String, EventAttributesList> actionPayloadMap, TreeMap<String, LinkedList<SubPolygon>> automatablePolygonsCandidates, HashMap<String, String> trivialRules, 
                                     HashMap<String, String> activationRules, TreeMap<String, LinkedList<SubPolygon>> subPolygonMap, String path) {
         JSONObject actions = new JSONObject();
@@ -480,7 +421,7 @@ public class Extension {
                     // TODO Auto-generated catch block
                     e1.printStackTrace();
                 }
-                for (Entry<String, LinkedList<String>> attributes : eventAttr     // dont peek! use every element in list!
+                for (Entry<String, LinkedList<String>> attributes : eventAttr 
                 .getEventAttributesMap().entrySet()) {
                     try {
                         jsAttributes.put(attributes.getKey(), attributes.getValue().getFirst());
@@ -566,14 +507,14 @@ public class Extension {
                     }
 
                     // activation Rules (not working with multiple conditions)
-                    if(activationRules.get(subPolygon.getName()) != null) {
+                    else if(activationRules.get(subPolygon.getName()) != null) {
                         String ruleString = activationRules.get(subPolygon.getName());
-                        String regexString = "\\((\\[\\d+\\-\\>\\d+\\])(\\w+):(\\w+) (\\W+) (.+)\\)";
+                        String regexString = "^\\((\\[\\d+\\-\\>\\d+\\])(\\w+):(\\w+) (\\W+) (.+?)\\)";
 
                         
                         Pattern p = Pattern.compile(regexString, Pattern.MULTILINE);
                         Matcher m = p.matcher(ruleString);
-                        if(m.find()) {
+                        while(m.find()) {
                             System.out.println(m.group(0));
                             // suche transition -> ähnlich zu oben
                             String beginCondition = m.group(1).substring(1, m.group(1).indexOf("-"));

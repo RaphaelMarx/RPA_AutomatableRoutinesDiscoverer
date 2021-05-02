@@ -98,7 +98,7 @@ public class RpaDiscovery
         log.println(TAG_RPST, 3, "\n\n");
         //log.println(TAG, 5, rpst.getDirectSuccessors(rpst.getRoot()));
 
-
+        // MODIFICATION: Find Actions in the DAFSA where the source attribute can be combined 
         graphAnalyzer(dafsa, actionPayloadMap);
 
         TreeMap<String, LinkedList<IRPSTNode>> labelRPSDNodeMap = rpstAdapter.labelRPSDNodeMap();
@@ -143,8 +143,8 @@ public class RpaDiscovery
 
         log.println(TAG_FIND_DEPENDENCIES, 2, "****STEP: discover dependencies...");
 
-        // List<String> discardedActionKeyList = Arrays.asList("insertValue");
-        List<String> discardedActionKeyList = Arrays.asList("TypeInto");
+        // List<String> discardedActionKeyList = Arrays.asList("insertValue"); // throws exception if there is no insertValue action
+        List<String> discardedActionKeyList = Arrays.asList();
 
         ArrayList<String> discardedAction = new ArrayList<>();
         for (String disc_i : discardedActionKeyList) {
@@ -247,7 +247,7 @@ public class RpaDiscovery
         System.out.println(eventsAttributesMap.get("[6-7]").getName());
         System.out.println(eventsAttributesMap.get("[6-7]").getPolygon());*/
         
-        // export the results as json in the same directory
+        // MODIFICATION: export the results as json in the same directory
         String path = Paths.get(fileName).getParent().toString() + "\\";
         exportResults(dafsa, actionPayloadMap, automatablePolygonsCandidates, trivialRules, activationRules, subPolygonMap, path);
     }
